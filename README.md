@@ -1,4 +1,4 @@
 domoportv2
 ==========
-
-openpicus Flyport with enocean module
+enocean lib for flyport openpicus
+based on EO300_API from Enocean
