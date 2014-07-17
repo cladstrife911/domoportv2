@@ -79,13 +79,16 @@ void CheckUART1()
 	}
 }
 
-#define COMMAND_NR 8
-char* commandList[COMMAND_NR] = {"help","startlearn","stoplearn","ping","readflash","showidtable", "writeflash", "clearidtable"};
+#define COMMAND_NR 11
+char* commandList[COMMAND_NR] = {"help","startlearn","stoplearn","ping","readflash","showidtable", "writeflash", "clearidtable", "clearflash", "outon", "outoff"};
 
 void CheckCmds()
 {	
 	BYTE resultBuff[SIZE_TO_READ];
 	int i=0;
+	
+	ID_ENTRY_TYPE entryType;
+	uint8 tmp;
 	
 	if(cmdNew)
 	{
@@ -176,6 +179,52 @@ void CheckCmds()
 
 			ConsoleWrite("#clearidtable\r\n");
 			enocean_idDeleteAll();
+		}
+		
+		//**********************************************
+		// Command clearflash
+		else if(strstr(u_cmd, commandList[8])!=NULL)
+		{
+
+			ConsoleWrite("#clearflash\r\n");
+			mem_clearFlash(MEMORY_ADDRESS_IDTABLE);
+		}
+		
+		//**********************************************
+		// Command outon pour la gigogne
+		// @param index de l'ID à utiliser (de 0 à 9), 9 pour broadcast
+		else if(strstr(u_cmd, commandList[9])!=NULL)
+		{
+			ConsoleWrite("#outon\r\n");
+			
+			tmp = u_cmd[5]-'0';
+			if(tmp>9) tmp=9;
+			if(tmp!=9)
+			{
+				ConsoleWrite("-ID:");
+				memcpy(&(entryType.u32Id), &(IDTable.entry[tmp].u32Id), 4);
+				uart_debugUINT32(entryType.u32Id);
+				ConsoleWrite("\r\n");
+			}
+			vlc_sendCMD01(&entryType, 1);
+		}
+		//**********************************************
+		// Command outoff pour la gigogne
+		// @param index de l'ID à utiliser (de 0 à 9), 9 pour broadcast
+		else if(strstr(u_cmd, commandList[10])!=NULL)
+		{
+			ConsoleWrite("#outoff\r\n");
+
+			tmp = u_cmd[5]-'0';
+			if(tmp>9) tmp=9;
+			if(tmp!=9)
+			{
+				ConsoleWrite("-ID:");
+				memcpy(&(entryType.u32Id), &(IDTable.entry[tmp].u32Id), 4);
+				uart_debugUINT32(entryType.u32Id);
+				ConsoleWrite("\r\n");
+			}
+			vlc_sendCMD01(&entryType, 0);
 		}
 		
 		//**********************************************

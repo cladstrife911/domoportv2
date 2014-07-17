@@ -4,6 +4,8 @@
 #include "tools.h"
 #include "mem_mod.h"
 
+#include "ute_mod.h"
+#include "enocean_esp3.h"
 
 #define UART_DEBUG
 
@@ -18,16 +20,55 @@ SM_STATE_NR_TYPE u8mode = SM_INIT;
 extern BOOL cmdNew;	//console.c
 #endif
 
+//appelée dans sm_init()
+void DEBUG()
+{
+	TEL_RADIO_TYPE telegram;
+	TEL_PARAM_TYPE telParam;
+	// UINT8 packet[19] ={0x00, 0x08, 0x07,(UINT8)((ESP3_PACKET_TYPE)RADIO), //header
+										// 0xD4, 0xD2, 0x01, 0x01, 0x00, 0x3E,0xFF,0x91,	//data
+										// 0x03, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00};	//optional data
+	
+	
+	vTaskDelay(50);
+	ConsoleWrite("#### DEBUG\r");
+	
+	memset(&(telegram.raw.bytes[0]),0,RADIO_BUFF_LENGTH);	//21
 
+	telParam.p_tx.u8SubTelNum = 3;	//send 3 subtelegram
+	telParam.p_tx.u32DestinationId = 0xFFFFFFFF; 
 
+	telegram.raw.bytes[0] = RADIO_CHOICE_UTE;
+	
+	//#### UTE CMD 0x0 payload ###
+	//TODO à modifier pour gérer plusieurs gigogne
+	telegram.raw.bytes[1] = UTE_EEP_RORG;
+	telegram.raw.bytes[2] = UTE_EEP_FUNC;
+	telegram.raw.bytes[3] = UTE_EEP_TYPE;
+	telegram.raw.bytes[4] = 0;	//MSB ManID
+	telegram.raw.bytes[5] = UTE_MANUFACTURER_ID; //manID Giga-Concept 0x03F
+	telegram.raw.bytes[6] = 0xFF; //teach-in all supported channel
+	telegram.raw.bytes[7] = 0x91;//0b10010001 - Bidirectionnal + Response accepted + CMD 0x1
+	//######
+	
+	telegram.raw.u8Length =  (RADIO_TEL_LENGTH) RADIO_DEC_LENGTH_UTE;	//20
+	
+	radio_sendTelegram(&telegram, &telParam);
+	
+	vTaskDelay(10);
+	
+	enocean_checkCmd(&telegram,NULL);
+	
+	vTaskDelay(50);
+	
+	ConsoleWrite("#### DEBUG END\r\n");
+}
 
 
 void FlyportTask()
 {
-	//int i=0;
 	
-	
-	vTaskDelay(5);
+	vTaskDelay(50);
 	
 	//	Flyport waiting for the cable connection
 	//while (!MACLinked);
@@ -97,6 +138,9 @@ RETURN_TYPE sm_init()
 	//	INIT UART FOR ENOCEAN COMMUNICATION
 	enocean_init();
 	
+	
+	// DEBUG();
+		
 	//*******************************************
 	// READ FLASH MEMORY 
 	mem_readFlash(MEMORY_ADDRESS_IDTABLE, resultBuff);
@@ -183,13 +227,24 @@ RETURN_TYPE sm_learn()
 		{
 			enocean_enableRadioRX(FALSE);
 			
-			if(enocean_idSearch(&IDTable, &telegram, &idSearchOut) == ID_NO_SUCCESS)
+			if(enocean_validToLearn(&telegram, &telParam) == ID_SUCCESS)
 			{
-				enocean_idAdd(&IDTable, &telegram);
+				if(enocean_idSearch(&IDTable, &telegram, &idSearchOut) == ID_NO_SUCCESS)
+				{
+					//special treatment for UTE which requires and answer
+					if(telegram.raw.bytes[0] == RADIO_CHOICE_UTE)
+					{
+						vTaskDelay(10);
+						ute_sendTeachInResponse(&telegram);
+					}
+					
+					enocean_idAdd(&IDTable, &telegram);
+				}else
+				{
+					ConsoleWrite("ID already existing\r\n");
+				}
 			}else
-			{
-				ConsoleWrite("ID already existing\r\n");
-			}
+				ConsoleWrite("Not valid to learn\r\n");
 			
 			enocean_enableRadioRX(TRUE);
 		}

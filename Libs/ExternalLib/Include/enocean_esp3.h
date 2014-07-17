@@ -3,6 +3,7 @@
 
 #include "tools.h"
 #include "HWlib.h"
+
  
 //compute the CRC8
 #define proc_crc8(u8CRC, u8Data) (u8CRC8Table[u8CRC ^ u8Data]) 
@@ -222,9 +223,9 @@ typedef enum
 	//! SYS_EX decoded telegram length	in bytes
 	RADIO_DEC_LENGTH_SYS_EX =		 16,			 
 	//! Smart ack learn request decoded telegram length in bytes
-	RADIO_DEC_LENGTH_SM_LRN_REQ =        17,
+	RADIO_DEC_LENGTH_SM_LRN_REQ =    17,
 	//! Smart ack learn answer telegram length in bytes
-	RADIO_DEC_LENGTH_SM_LRN_ANS =        15,	 
+	RADIO_DEC_LENGTH_SM_LRN_ANS =    15,	 
 	//! Smart ack reclaim telegram length in bytes
 	RADIO_DEC_LENGTH_SM_REC =        8,
 	//! Signal telegram length in bytes
@@ -232,7 +233,9 @@ typedef enum
 	//! U2S decoded telegram length in bytes
 	RADIO_DEC_LENGTH_U2S =           6,
 	//! T2S decoded telegram length iin bytes
-	RADIO_DEC_LENGTH_T2S =           6,			 
+	RADIO_DEC_LENGTH_T2S =           6,	
+	//! UTE
+	RADIO_DEC_LENGTH_UTE = 			20,
 
 } RADIO_TEL_LENGTH;
 
@@ -471,7 +474,7 @@ RETURN_TYPE parseRemoteManCommand(UINT8 *pBuffer, UINT32 length);
 
 
 
-
+RETURN_TYPE radio_sendTelegram( TEL_RADIO_TYPE *  pu8TxRadioTelegram, TEL_PARAM_TYPE *  pu8TelParam);
 RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE *pu8TelParam);
 
 
@@ -480,5 +483,6 @@ void DEBUGDisplayTRPS(TEL_RADIO_TYPE* const  telegram);
 void DEBUGDisplayT1BS(TEL_RADIO_TYPE* const telegram);
 void DEBUGDisplayT4BS(TEL_RADIO_TYPE* const telegram);
 void DEBUGDisplayTELPARAM(TEL_PARAM_TYPE* const param);
+void DEBUGDisplayTELPARAM_TX(TEL_PARAM_TYPE* const param);
 
 #endif 

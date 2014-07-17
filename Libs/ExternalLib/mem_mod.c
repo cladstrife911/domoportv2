@@ -1,5 +1,8 @@
 #include "mem_mod.h"
 
+#include "console.h"
+#include "tools.h"
+
 
 BOOL mem_readFlash(UINT32 addressToRead, BYTE resultBuff[SIZE_TO_READ])
 {
@@ -34,6 +37,18 @@ BOOL mem_writeFlash(DWORD dwAddr, BYTE* vData, WORD wLen)
 	return TRUE;
 }
 
+/*******************
+this function can be used to clear the flash.
+it will clear 1 sector of 4096 bytes
+*********************/
+void mem_clearFlash(DWORD dwAddr)
+{	
+	ConsoleWrite("ENTER mem_clearFlash()r\n");
+
+	SPIFlashEraseSector(dwAddr);
+	
+	ConsoleWrite("EXIT mem_clearFlash()r\n");
+}
 
 void mem_DEBUG()
 {

@@ -91,6 +91,7 @@ the BaseId can be used to send telegram
 RETURN_TYPE enocean_getBaseId()
 {
 	TEL_RADIO_TYPE telegram;
+	
 	UINT8 result;
 	
 	ConsoleWrite("ENTER enocean_getBaseId()\r\n");

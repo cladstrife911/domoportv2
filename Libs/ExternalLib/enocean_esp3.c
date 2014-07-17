@@ -17,6 +17,8 @@
 #include "enocean_esp3.h"
 #include "console.h"
 
+#include "ute_mod.h"
+
 #define UART_DEBUG
 
 #define UART_PORT 2
@@ -78,11 +80,7 @@ RETURN_TYPE UARTSendPacket(UINT8 *pBuffer)
 	UINT32 dataSize =0;
 	UINT8  u8CRC=0; 
 		
-	#ifdef UART_DEBUG
-	vTaskDelay(10);
-	UARTWrite(1,"\r\n#####UARTSendPacket#####");
-	UARTWrite(1,"\r\n");
-	#endif
+	ConsoleWrite("ENTER UARTSendPacket()\r\n");
 	
 	// When both length fields are 0, then this telegram is not allowed.  
 	if(pBuffer[0] ==0 && pBuffer[1] == 0 && pBuffer[2]==0) 
@@ -91,33 +89,17 @@ RETURN_TYPE UARTSendPacket(UINT8 *pBuffer)
 	} 
 	
 	dataSize = (((UINT32)pBuffer[0])<<8) + pBuffer[1] + pBuffer[2];
-	
-	#ifdef UART_DEBUG
-	vTaskDelay(10);
-	UARTDebug32("- dataSize = ", dataSize);
-	UARTWrite(1,"\r\n");
-	#endif
-		
-		
+
 	// Sync 
 	UARTWriteCh(port, ESP3_SYNC_BYTE); 
-	#ifdef UART_DEBUG
-	UARTDebugHexa(ESP3_SYNC_BYTE);
-	#endif
 
-	
-	#ifdef UART_DEBUG
-	UARTWrite(1,"\r\nHEADER:");
-	#endif
 	// Header 
 	while(UARTWriteBuffer((UINT8*)pBuffer, ESP3_HEADER_SIZE) != OK); 
 
 	// Header CRC 
-	u8CRC = 0; 
-	u8CRC = proc_crc8(u8CRC, ((UINT8*)pBuffer)[0]); 
-	u8CRC = proc_crc8(u8CRC, ((UINT8*)pBuffer)[1]); 
-	u8CRC = proc_crc8(u8CRC, ((UINT8*)pBuffer)[2]); 
-	u8CRC = proc_crc8(u8CRC, ((UINT8*)pBuffer)[3]); 
+	for (i = 0 ; i < 4 ; i++) 
+		u8CRC = proc_crc8(u8CRC, ((UINT8*)pBuffer)[i]); 
+	
 	UARTWriteCh(port, u8CRC); 
 	#ifdef UART_DEBUG
 	UARTWrite(1,"\r\nu8CRCH:");
@@ -145,13 +127,141 @@ RETURN_TYPE UARTSendPacket(UINT8 *pBuffer)
 	UARTDebugHexa(u8CRC);
 	#endif
 		
-		
-	#ifdef UART_DEBUG
-	UARTWrite(1,"\r\n");
-	vTaskDelay(10);
-	#endif
 	return OK; 
 } //UARTSendPacket
+
+
+RETURN_TYPE radio_sendTelegram( TEL_RADIO_TYPE *  pu8TxRadioTelegram, TEL_PARAM_TYPE *  pu8TelParam)
+{
+	UINT32 i=0; 
+	UINT8 dataSize =0;
+	UINT8  u8CRC=0; 
+	
+	UINT8 esp3_header[4];
+	UINT8 u32IDTmp[4];
+		
+	ConsoleWrite("ENTER radio_sendTelegram()\r\n");
+	
+	DEBUGDisplayRAW(pu8TxRadioTelegram);
+	DEBUGDisplayTELPARAM_TX(pu8TelParam);
+	
+	// When both length fields are 0, then this telegram is not allowed.  
+	// if(pBuffer[0] ==0 && pBuffer[1] == 0 && pBuffer[2]==0) 
+	// { 
+		// return OUT_OF_RANGE;  
+	// } 
+	
+	// dataSize = (((UINT32)pBuffer[0])<<8) + pBuffer[1] + pBuffer[2];
+	
+	// dataSize = pu8TelParam->p_tx.u8Length;
+	dataSize = pu8TxRadioTelegram->raw.u8Length;//pu8TelParam->p_tx.u8Length;
+	
+	#ifdef UART_DEBUG
+	ConsoleWrite("- dataSize = ");
+	uart_debugHexa(dataSize);
+	#endif
+	
+	// Sync 
+	UARTWriteCh(UART_PORT, ESP3_SYNC_BYTE); 
+	
+	#ifdef UART_DEBUG
+	ConsoleWrite("\r\nHEADER:");
+	#endif
+	
+	//data length 1
+	esp3_header[0] = 0;
+	UARTWriteCh(UART_PORT, esp3_header[0]);
+	uart_debugHexa(esp3_header[0]);
+	
+	//data length 0
+	esp3_header[1] = dataSize-7;
+	UARTWriteCh(UART_PORT, esp3_header[1]);
+	uart_debugHexa(esp3_header[1]);
+	
+	//optional data lentgh
+	esp3_header[2] = 7;
+	UARTWriteCh(UART_PORT, esp3_header[2]);
+	uart_debugHexa(esp3_header[2]);
+	
+	//packet type
+	esp3_header[3] = (ESP3_PACKET_TYPE)RADIO;
+	UARTWriteCh(UART_PORT,esp3_header[3]); //RADIO TYPE 0x01
+	uart_debugHexa(esp3_header[3]);
+
+	// Header CRC 
+	u8CRC = 0; 
+	u8CRC = proc_crc8(u8CRC, esp3_header[0]); 
+	u8CRC = proc_crc8(u8CRC, esp3_header[1]); 
+	u8CRC = proc_crc8(u8CRC, esp3_header[2]); 
+	u8CRC = proc_crc8(u8CRC, esp3_header[3]); 
+	
+	UARTWriteCh(UART_PORT, u8CRC); 
+	#ifdef UART_DEBUG
+	ConsoleWrite("\r\nu8CRCH:");
+	uart_debugHexa(u8CRC);
+	ConsoleWrite("\r\n");
+	#endif
+
+	u8CRC = 0; 
+	//----------------DATA
+	for (i = 0 ; i < (dataSize-7) ; i++) 
+	{ 
+		u8CRC = proc_crc8(u8CRC, pu8TxRadioTelegram->raw.bytes[i]); 
+		UARTWriteCh(UART_PORT, pu8TxRadioTelegram->raw.bytes[i]);
+		#ifdef UART_DEBUG
+		uart_debugHexa(pu8TxRadioTelegram->raw.bytes[i]);
+		#endif
+	} 
+	//----------------OPTIONAL DATA
+	//-----sub tel
+	u8CRC = proc_crc8(u8CRC,pu8TelParam->p_tx.u8SubTelNum); 
+	UARTWriteCh(UART_PORT, pu8TelParam->p_tx.u8SubTelNum);
+	#ifdef UART_DEBUG
+	uart_debugHexa(pu8TelParam->p_tx.u8SubTelNum);
+	#endif
+	
+	//-----destination ID
+	memcpy(u32IDTmp, &(pu8TelParam->p_tx.u32DestinationId), 4);
+	for (i = 0 ; i < 4 ; i++) 
+	{ 
+		u8CRC = proc_crc8(u8CRC, u32IDTmp[i]); 
+		UARTWriteCh(UART_PORT, u32IDTmp[i]);
+		#ifdef UART_DEBUG
+		uart_debugHexa(u32IDTmp[i]);
+		#endif
+	} 
+	
+	//-----dBm
+	u8CRC = proc_crc8(u8CRC, 0xFF); 
+	UARTWriteCh(UART_PORT, 0xFF);
+	#ifdef UART_DEBUG
+	uart_debugHexa(0xFF);
+	#endif
+	
+	//-----security level
+	u8CRC = proc_crc8(u8CRC, 0x00); 
+	UARTWriteCh(UART_PORT, 0x00);
+	#ifdef UART_DEBUG
+	uart_debugHexa(0x00);
+	#endif
+
+	// Data CRC 
+	UARTWriteCh(UART_PORT, u8CRC); 
+	#ifdef UART_DEBUG
+	ConsoleWrite("\r\nu8CRCD:");
+	uart_debugHexa(u8CRC);
+	#endif
+
+
+	ConsoleWrite("\r\nEXIT radio_sendTelegram()\r\n");
+	
+	return OK; 
+} 
+
+
+
+
+
 
 
 
@@ -177,9 +287,10 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 	if(packetSize < enocean_radioRXtoRead) 
 	{
 		#ifdef UART_DEBUG
-			UARTWrite(1,"\r\n DOUBLE PACKET");
-			UARTDebug32("\r\n length= ", enocean_radioRXtoRead);
-			UARTDebug32("- dataSize = ", packetSize);
+			ConsoleWrite("\r\n DOUBLE PACKET \r\n- length= ");
+			uart_debugHexa(enocean_radioRXtoRead);
+			ConsoleWrite("\r\n- dataSize = ");
+			uart_debugUINT32(packetSize);
 		#endif
 		//recursivity to handle the 2nd packet
 		//TODO A MODIFIER
@@ -224,7 +335,7 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 			//! u8Dbm of the last subtelegram calculated from RSSI. Note this value is an unsigned value. The real dBm signal is a negative value.
 			pu8TelParam->p_rx.u8Dbm = enocean_radioRXBuffer[packetSize-3];
 			
-			// DEBUGDisplayTELPARAM(pu8TelParam);
+			DEBUGDisplayTELPARAM(pu8TelParam);
 			
 			//switch RORG
 			switch( ((UINT8*)enocean_radioRXBuffer)[6])
@@ -261,7 +372,25 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 					
 					// DEBUGDisplayT4BS(pu8RxRadioTelegram);
 				break;
-					
+				
+				case RADIO_CHOICE_UTE:
+				//TODO
+				pu8RxRadioTelegram->raw.bytes[0] = RADIO_CHOICE_UTE;
+				pu8RxRadioTelegram->raw.bytes[1] = enocean_radioRXBuffer[7];
+				pu8RxRadioTelegram->raw.bytes[2] = enocean_radioRXBuffer[8];
+				pu8RxRadioTelegram->raw.bytes[3] = enocean_radioRXBuffer[9];
+				pu8RxRadioTelegram->raw.bytes[4] = enocean_radioRXBuffer[10];
+				pu8RxRadioTelegram->raw.bytes[5] = enocean_radioRXBuffer[11];
+				pu8RxRadioTelegram->raw.bytes[6] = enocean_radioRXBuffer[12];
+				pu8RxRadioTelegram->raw.bytes[7] = enocean_radioRXBuffer[13];
+				memcpy(&(pu8RxRadioTelegram->raw.bytes[8]), &enocean_radioRXBuffer[14], 4);
+				pu8RxRadioTelegram->raw.bytes[12] 	= enocean_radioRXBuffer[18];											
+				pu8RxRadioTelegram->raw.u8Length 	= UTE_TELEGRAM_LENGTH;	//0xE
+				
+				DEBUGDisplayRAW(pu8RxRadioTelegram);
+				
+				break;	
+				
 				default:
 					ConsoleWrite("EEP not supported\r\n");
 				break;
@@ -275,10 +404,12 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 					//TODO !!!this will only work for CO_RD_IDBASE !!!
 					//il faut passer un paramètre supllémentaire à la fonction pour qu'elle sache quelle COMMON COMMAND a été envoyé
 					//la longueur de la réponse et différente en fonction de la commande (CO_WR_REPEATER réponse longueur 1)
-					memcpy(&(pu8RxRadioTelegram->raw.bytes), &(enocean_radioRXBuffer[6]), 6); //Ret code + BaseId + remaining wr cycle = 6		
+					memcpy(&(pu8RxRadioTelegram->raw.bytes), &(enocean_radioRXBuffer[6]), 6); //Ret code + BaseId + remaining wr cycle = 6	
+					#ifdef UART_DEBUG					
 					ConsoleWrite("\r\nRAW: ");
 					for(i=0;i<packetSize;i++)
 						uart_debugHexa(enocean_radioRXBuffer[i]);
+					#endif
 					break;
 					
 				default:
@@ -315,7 +446,7 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 	#ifdef UART_DEBUG
 	int i=0;
 	ConsoleWrite("RAW: ");
-	for(i=0;i<RADIO_DEC_LENGTH_RPS;i++)
+	for(i=0;i<telegram->raw.u8Length;i++)
 	{
 		uart_debugHexa(telegram->raw.bytes[i]);
 		ConsoleWrite(" ");
@@ -372,7 +503,7 @@ void DEBUGDisplayT4BS(TEL_RADIO_TYPE* const telegram)
 	#endif
 }
  
-void DEBUGDisplayTELPARAM(TEL_PARAM_TYPE* param)
+void DEBUGDisplayTELPARAM(TEL_PARAM_TYPE* const param)
 {
 	#ifdef UART_DEBUG
 	ConsoleWrite("\r\nTEL_PARAM_TYPE:\r\n");
@@ -382,6 +513,18 @@ void DEBUGDisplayTELPARAM(TEL_PARAM_TYPE* param)
 	uart_debugUINT32(param->p_rx.u32DestinationId	);
 	ConsoleWrite("\r\n-p_rx.u8Dbm:");
 	uart_debugHexa(param->p_rx.u8Dbm);
+	ConsoleWrite("\r\n");
+	#endif
+}
+
+void DEBUGDisplayTELPARAM_TX(TEL_PARAM_TYPE* const param)
+{
+	#ifdef UART_DEBUG
+	ConsoleWrite("\r\nTEL_PARAM_TYPE_TX:\r\n");
+	ConsoleWrite("-p_tx.u8SubTelNum:");
+	uart_debugHexa(param->p_tx.u8SubTelNum);
+	ConsoleWrite("\r\n-p_tx.u32DestinationId:");
+	uart_debugUINT32(param->p_tx.u32DestinationId	);
 	ConsoleWrite("\r\n");
 	#endif
 }
