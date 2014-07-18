@@ -88,6 +88,7 @@ void CheckCmds()
 	int i=0;
 	
 	ID_ENTRY_TYPE entryType;
+	entryType.u32Id = 0xFFFFFFFF;
 	uint8 tmp;
 	
 	if(cmdNew)
@@ -195,7 +196,9 @@ void CheckCmds()
 		// @param index de l'ID à utiliser (de 0 à 9), 9 pour broadcast
 		else if(strstr(u_cmd, commandList[9])!=NULL)
 		{
-			ConsoleWrite("#outon\r\n");
+			ConsoleWrite("#");
+			ConsoleWrite(u_cmd);
+			ConsoleWrite("\r\n");
 			
 			tmp = u_cmd[5]-'0';
 			if(tmp>9) tmp=9;
@@ -213,9 +216,11 @@ void CheckCmds()
 		// @param index de l'ID à utiliser (de 0 à 9), 9 pour broadcast
 		else if(strstr(u_cmd, commandList[10])!=NULL)
 		{
-			ConsoleWrite("#outoff\r\n");
+			ConsoleWrite("#");
+			ConsoleWrite(u_cmd);
+			ConsoleWrite("\r\n");
 
-			tmp = u_cmd[5]-'0';
+			tmp = u_cmd[6]-'0';
 			if(tmp>9) tmp=9;
 			if(tmp!=9)
 			{
