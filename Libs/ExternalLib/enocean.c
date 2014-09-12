@@ -4,6 +4,8 @@
 
 #define UART_DEBUG
 
+// #define GROVE_ENOCEAN
+
 RETURN_TYPE enocean_newRXTel = NO_RX_TEL;
 UINT8 	enocean_radioRXBuffer[UART_MAX_LENGTH];
 int 	enocean_radioRXtoRead = 0;
@@ -27,9 +29,15 @@ void enocean_init()
 {	
 	//don't forget to activate 2nd UART on the wizzard
 	//Init of the UART for EnOcean module when using the flyport Pro dev board (connected on J5)
-
+	#ifdef GROVE_ENOCEAN
+	//Grove Enocean must be connected to DIGI1 to work with this configuration
+	IOInit(p4,UART2RX); //ADIO7 of TCM310
+	IOInit(p2, UART2TX); //ADIO6 of TCM310
+	#else
 	IOInit(p5,UART2RX); //ADIO7 of TCM310
 	IOInit(p4, UART2TX); //ADIO6 of TCM310
+	#endif
+	
 	UARTInit(2,57600);
 	UARTOn(2);
 }
@@ -59,6 +67,8 @@ read UART RX buffer to check if there is a new telegram arrived
 **********************************************/
 RETURN_TYPE enocean_checkCmd(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE *pu8TelParam)
 {	
+	// int i;
+	
 	if(UARTBufferSize(UART_PORT)>10)
 	{
 		vTaskDelay(2);
@@ -70,7 +80,9 @@ RETURN_TYPE enocean_checkCmd(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE 
 		enocean_newRXTel = radio_getTelegram(pu8RxRadioTelegram,pu8TelParam);
 		
 		#ifdef UART_DEBUG
-		ConsoleWrite("result=");
+		// for(i=0;i<enocean_radioRXtoRead;i++)
+			// uart_debugHexa(enocean_radioRXBuffer[i]);	
+		ConsoleWrite("\r\nresult=");
 		uart_debugHexa(enocean_newRXTel);
 		ConsoleWrite("\r\n");
 		#endif

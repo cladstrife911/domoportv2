@@ -49,6 +49,8 @@ ID_RETURN_TYPE enocean_idAdd(ID_TABLE_TYPE *pIDtable, TEL_RADIO_TYPE* const pRad
 
 		case RADIO_CHOICE_4BS:
 			entryToAdd.u32control.u8RORG 	= RADIO_CHOICE_4BS;
+			entryToAdd.u32control.u8FUNC 	= pRadioTel->t4bs.u8Data3 >>2;
+			entryToAdd.u32control.u8TYPE 	= (pRadioTel->t4bs.u8Data3 & 0x03) + (pRadioTel->t4bs.u8Data2 >>3);
 			entryToAdd.u32Id 			    = pRadioTel->t4bs.u32Id;
 			break;//RADIO_CHOICE_4BS
 		
@@ -93,12 +95,12 @@ ID_RETURN_TYPE enocean_idSearch(ID_TABLE_TYPE const *pIdTable, TEL_RADIO_TYPE co
 	// ID table entry index
 	uint8           	u8index=0;
 
-	ConsoleWrite("ENTER enocean_idSearch()\r\n");
+	// ConsoleWrite("ENTER enocean_idSearch()\r\n");
 	
 	//check if IDTable is empty
 	if(ID_PTABLE_NR_ENTRIES(pIdTable) <=0 )
 	{
-		ConsoleWrite("EXIT NO_SUCCESS enocean_idSearch()\r\n");
+		// ConsoleWrite("EXIT NO_SUCCESS enocean_idSearch()\r\n");
 		return ID_NO_SUCCESS;
 	}
 	
@@ -123,23 +125,11 @@ ID_RETURN_TYPE enocean_idSearch(ID_TABLE_TYPE const *pIdTable, TEL_RADIO_TYPE co
 			break;
 			
 		case RADIO_CHOICE_UTE:
-			// if(mode == 1) //LEARN
-			// {
-				ute_getEntryType(pRadioTel, &entryToSearch); //extract RORG and ID
-				
-				break;
-			// }else
-				// return ID_NO_SUCCESS;
-		// case RADIO_CHOICE_VLD: //UTE radio message is use for VLD telegram
-			// if(mode == 0) //OPERATION
-			// {
-				// entryToSearch.u32control.u8RORG 	= RADIO_CHOICE_VLD;
-				// vld_getId(pRadioTel, &entryToSearch);	
-				// break;
-			// }else
-				// return ID_NO_SUCCESS;
+			ute_getEntryType(pRadioTel, &entryToSearch); //extract RORG and ID	
+			break;
+
 		default:
-			ConsoleWrite("EXIT enocean_idSearch()\r\n");
+			// ConsoleWrite("EXIT enocean_idSearch()\r\n");
             return ID_NO_SUCCESS;
 
 	}
@@ -167,11 +157,11 @@ ID_RETURN_TYPE enocean_idSearch(ID_TABLE_TYPE const *pIdTable, TEL_RADIO_TYPE co
 		pSearchOut->u32control  = pIdTable->entry[u8index].u32control; 
 			
 		// Information found! The entry index, where the info was found, is stored in *u8index
-		ConsoleWrite("EXIT SUCCESS enocean_idSearch()\r\n");
+		// ConsoleWrite("EXIT SUCCESS enocean_idSearch()\r\n");
 		return ID_SUCCESS;					
 	}
 
-	ConsoleWrite("EXIT NO_SUCCESS enocean_idSearch()\r\n");
+	// ConsoleWrite("EXIT NO_SUCCESS enocean_idSearch()\r\n");
 	
 	// No ID entry found with the given search criteria
  	return ID_NO_SUCCESS;
@@ -236,14 +226,17 @@ ID_RETURN_TYPE enocean_validToLearn(TEL_RADIO_TYPE const *pRadioTel, TEL_PARAM_T
     }
 	  
 	/********************************/
-	/*		4BS							*/
+	/*		4BS						*/
+	/* temperature sensor A5-02		*/
 	/* light sensor A5-06			*/
-	/* occupancy A5-07			*/
-	/*	occupancy light A5-08	*/
+	/* occupancy A5-07				*/
+	/* occupancy light A5-08		*/
 	/********************************/
     if( (pRadioTel->raw.bytes[0] == (uint8)RADIO_CHOICE_4BS) && 	//RORG
         ((pRadioTel->t4bs.u8Data0 & EEP_4BS_TEACHIN_LEARN_BIT) == EEP_4BS_TEACHIN_LEARN_BIT ) &&	//learn bit
 			(	//##### TYPE #####
+				//temperature sensor
+				(pRadioTel->t4bs.u8Data3 & ID_SEARCH_FUNC_4BS_MASK) == (ID_FUNC_4BS_TEMPERATURE<<2) ||
 				//Light sensor
 				(pRadioTel->t4bs.u8Data3 & ID_SEARCH_FUNC_4BS_MASK) == (ID_FUNC_4BS_LIGHT<<2) ||
 				//Occupancy sensor
@@ -307,15 +300,76 @@ ID_RETURN_TYPE enocean_idDeleteAll()
 
 
 
+
+/********************************************************************
+* send RPS telegram to simulate a switch
+********************************************************************/
+
+/**
+*
+envoi d'un telegram RPS
+@pare	senderID	- ID à utiliser pour envoyer la commande
+@param	value	- 0 pour éteindre, 1 pour allumer
+@param	canal	- canal à utiliser (0 ou 1)
+@param 	release 1 - envoyer le code touche 0 pour simuler le relachement de la touche
+		release 0 - ne pas envoyer le relachement de la touche
+*/
+ID_RETURN_TYPE enocean_sendRPS(UINT32 senderID, uint8 value, uint8 release)//, uint8 canal, uint8 release)
+{
+	TEL_RADIO_TYPE telegram;
+	TEL_PARAM_TYPE telParam;
+
+	ConsoleWrite("ENTER enocean_sendRPS()\r\n");
+	
+	memset(&(telegram.raw.bytes[0]),0,RADIO_BUFF_LENGTH);	//21
+
+	telParam.p_tx.u8SubTelNum = 3;	//send 3 subtelegram
+	
+	telParam.p_tx.u32DestinationId = 0xFFFFFFFF; 
+	ConsoleWrite("DestId=");
+	uart_debugUINT32(telParam.p_tx.u32DestinationId);
+	ConsoleWrite("\r\n");
+
+	telegram.raw.bytes[0] = RADIO_CHOICE_RPS;
+	
+	ConsoleWrite("DB0=");
+	uart_debugHexa(value);//canal<<2 + value<<1 + 1);
+	ConsoleWrite("\r\n");
+	
+	//code de la touche 0x10, 0x30, 0x50, 0x70
+	telegram.raw.bytes[1] = value;//canal<<2 + value<<1 + 1;
+	memcpy(telegram.raw.bytes[2], &senderID, 4);
+	telegram.raw.bytes[6] = 0x30; //status
+	
+	
+	telegram.raw.u8Length =  14;	//(rorg + data + opt data)
+	
+	radio_sendTelegram(&telegram, &telParam);
+	
+	
+	if(release == 1)
+	{
+		vTaskDelay(20);
+		telegram.raw.bytes[1] = 0;
+		telegram.raw.bytes[6] = 0x20; //status
+		radio_sendTelegram(&telegram, &telParam);
+	}
+
+	return ID_SUCCESS;
+}
+
+
 /********************************************************************
 *		fonctions VLD spécifique à la gigogne
 *********************************************************************/
 /**
 *
+EEP D2-01
+VLD CMD 0x01
 @param 	status = 0 -> output OFF
 		status = 1 -> output ON
 */
-ID_RETURN_TYPE vlc_sendCMD01(ID_ENTRY_TYPE const * pEntryId, uint8 status)
+ID_RETURN_TYPE vld_sendCMD01(ID_ENTRY_TYPE const * pEntryId, uint8 status)
 {
 	TEL_RADIO_TYPE telegram;
 	TEL_PARAM_TYPE telParam;
@@ -347,5 +401,41 @@ ID_RETURN_TYPE vlc_sendCMD01(ID_ENTRY_TYPE const * pEntryId, uint8 status)
 	return ID_SUCCESS;
 }
 
+/**
+*
+EEP D2-01
+VLD CMD 0x03 actuator status query
+@param 	channel = 0 - channel number (valid: 0 or 0x1E)
+*/
+ID_RETURN_TYPE vld_sendCMD03(ID_ENTRY_TYPE const * pEntryId, uint8 channel)
+{
+	TEL_RADIO_TYPE telegram;
+	TEL_PARAM_TYPE telParam;
+
+	ConsoleWrite("ENTER vlc_sendCMD03()\r\n");
+	
+	memset(&(telegram.raw.bytes[0]),0,RADIO_BUFF_LENGTH);	//21
+
+	telParam.p_tx.u8SubTelNum = 3;	//send 3 subtelegram
+	
+	memcpy(&(telParam.p_tx.u32DestinationId) , &(pEntryId->u32Id), 4); 
+	ConsoleWrite("DestId=");
+	uart_debugUINT32(telParam.p_tx.u32DestinationId);
+	ConsoleWrite("\r\n");
+
+	telegram.raw.bytes[0] = RADIO_CHOICE_VLD;
+	
+	//#### VLD CMD 0x01 payload ###
+	telegram.raw.bytes[1] = (VLD_CMD_ID)VLD_CMD_03;
+	telegram.raw.bytes[2] = channel;
+	//######
+	
+	telegram.raw.u8Length =  1 + VLD_PAYLOAD_CMD3 + 5 + 7;	//18 (rorg + data + opt data)
+	
+	radio_sendTelegram(&telegram, &telParam);
+	
+
+	return ID_SUCCESS;
+}
 
 

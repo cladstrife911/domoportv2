@@ -93,6 +93,7 @@ typedef struct
 
 
 #define ID_SEARCH_FUNC_4BS_MASK 0xFC
+#define ID_FUNC_4BS_TEMPERATURE	0x02
 #define ID_FUNC_4BS_LIGHT	0x06
 #define ID_FUNC_4BS_OCCUPANCY 0x07
 #define ID_FUNC_4BS_OCCUPANCY_LIGHT	0x08
@@ -150,7 +151,11 @@ ID_RETURN_TYPE enocean_idDelete(ID_TABLE_TYPE *pIDtable, uint8 u8index);
 ID_RETURN_TYPE enocean_idDeleteAll();
 ID_RETURN_TYPE enocean_validToLearn(TEL_RADIO_TYPE const *pRadioTel, TEL_PARAM_TYPE const *pRadioParam);
 
-ID_RETURN_TYPE vlc_sendCMD01(ID_ENTRY_TYPE const * pEntryId, uint8 status);
+
+ID_RETURN_TYPE enocean_sendRPS(UINT32 senderID, uint8 value, uint8 release);//, uint8 canal, uint8 release);
+
+ID_RETURN_TYPE vld_sendCMD01(ID_ENTRY_TYPE const * pEntryId, uint8 status);
+ID_RETURN_TYPE vld_sendCMD03(ID_ENTRY_TYPE const * pEntryId, uint8 channel);
 
 #endif
 

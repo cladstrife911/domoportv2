@@ -68,7 +68,7 @@ void CheckUART1()
 {
 	// Check UART1 Commands
 	int tmpLen = UARTBufferSize(1);
-	if(tmpLen > 3)
+	if(tmpLen > 1)
 	{
 		vTaskDelay(5);
 		len = UARTBufferSize(1);
@@ -79,8 +79,8 @@ void CheckUART1()
 	}
 }
 
-#define COMMAND_NR 11
-char* commandList[COMMAND_NR] = {"help","startlearn","stoplearn","ping","readflash","showidtable", "writeflash", "clearidtable", "clearflash", "outon", "outoff"};
+#define COMMAND_NR 15
+char* commandList[COMMAND_NR] = {"help","startlearn","stoplearn","ping","readflash","showidtable", "writeflash", "clearidtable", "clearflash", "outon", "outoff", "outstatus", "deleteid", "rpson", "rpsoff"};
 
 void CheckCmds()
 {	
@@ -145,6 +145,8 @@ void CheckCmds()
 			for(i=0;i<SIZE_TO_READ;i++)
 				UARTDebugHexa(resultBuff[i]);			
 			
+			if(resultBuff[0]>ID_MAX_NR_ENTRIES) resultBuff[0] = 0;
+			
 			memcpy(&(IDTable),resultBuff,sizeof(IDTable));
 		}
 		
@@ -184,6 +186,7 @@ void CheckCmds()
 		
 		//**********************************************
 		// Command clearflash
+		// erase all the sector of the flash (all bytes set to 0xFF
 		else if(strstr(u_cmd, commandList[8])!=NULL)
 		{
 
@@ -209,7 +212,7 @@ void CheckCmds()
 				uart_debugUINT32(entryType.u32Id);
 				ConsoleWrite("\r\n");
 			}
-			vlc_sendCMD01(&entryType, 1);
+			vld_sendCMD01(&entryType, 1);
 		}
 		//**********************************************
 		// Command outoff pour la gigogne
@@ -229,8 +232,82 @@ void CheckCmds()
 				uart_debugUINT32(entryType.u32Id);
 				ConsoleWrite("\r\n");
 			}
-			vlc_sendCMD01(&entryType, 0);
+			vld_sendCMD01(&entryType, 0);
 		}
+		
+		//**********************************************
+		// Command outstatus pour la gigogne
+		// @param 1 - index de l'ID à utiliser (de 0 à 9), 9 pour broadcast 
+		else if(strstr(u_cmd, commandList[11])!=NULL)
+		{
+			ConsoleWrite("#");
+			ConsoleWrite(u_cmd);
+			ConsoleWrite("\r\n");
+			
+			tmp = u_cmd[9]-'0';
+			if(tmp>9) tmp=9;
+			if(tmp!=9)
+			{
+				ConsoleWrite("-ID:");
+				memcpy(&(entryType.u32Id), &(IDTable.entry[tmp].u32Id), 4);
+				uart_debugUINT32(entryType.u32Id);
+				ConsoleWrite("\r\n");
+			}
+			vld_sendCMD03(&entryType, 0); //get output status for output 0 (default output for the smart plug)
+		}
+		
+		//**********************************************
+		// deleteid - delete 1 ID in the IDTable
+		// @param 1 - index de l'ID à supprimer (de 0 à 9), 9 pour broadcast 
+		else if(strstr(u_cmd, commandList[12])!=NULL)
+		{
+			ConsoleWrite("#");
+			ConsoleWrite(u_cmd);
+			ConsoleWrite("\r\n");
+			
+			tmp = u_cmd[8]-'0';
+			if(tmp>9) tmp=9;
+			if(tmp!=9)
+			{
+				ConsoleWrite("-ID:");
+				memcpy(&(entryType.u32Id), &(IDTable.entry[tmp].u32Id), 4);
+				uart_debugUINT32(entryType.u32Id);
+				ConsoleWrite("\r\n");
+			}
+			enocean_idDelete(&IDTable, tmp);
+		}
+		
+		
+		//**********************************************
+		// rpson 
+		else if(strstr(u_cmd, commandList[13])!=NULL)
+		{
+			ConsoleWrite("#");
+			ConsoleWrite(u_cmd);
+			ConsoleWrite("\r\n");
+			
+			enocean_sendRPS(0, 0x10, 1);
+			// vTaskDelay(200);
+			// enocean_sendRPS(0, 0x30, 1);
+			
+			// vTaskDelay(200);
+			// enocean_sendRPS(0, 0x50, 0);
+			// vTaskDelay(200);
+			// enocean_sendRPS(0, 0x70, 0);
+		}
+		//**********************************************
+		// rpsoff
+		else if(strstr(u_cmd, commandList[14])!=NULL)
+		{
+			ConsoleWrite("#");
+			ConsoleWrite(u_cmd);
+			ConsoleWrite("\r\n");
+			
+	
+			enocean_sendRPS(0, 0x30, 1);
+			
+		}
+		
 		
 		//**********************************************
 		// unknown command
@@ -267,7 +344,9 @@ void debug_showIDTable()
 
 	// Get the nr. of IDs stored in the table
 	u8nrEntries = ID_TABLE_NR_ENTRIES(IDTable);
-	
+	if(u8nrEntries >ID_MAX_NR_ENTRIES )
+		u8nrEntries = 0;
+		
 	ConsoleWrite("Size of IDTable: ");
 	uart_debugHexa(sizeof(IDTable));
 	ConsoleWrite("\r\n");
@@ -291,8 +370,12 @@ void debug_showIDTable()
 			// uart_debugHexa(IDtable.entry[u8index].u32control.u2channel);
 			ConsoleWrite(", u6reserved:");
 			uart_debugHexa(IDTable.entry[u8index].u32control.u6reserved);
-			ConsoleWrite(", u8RORG:");
+			ConsoleWrite(", EEP:");
 			uart_debugHexa(IDTable.entry[u8index].u32control.u8RORG);
+			ConsoleWrite("-");
+			uart_debugHexa(IDTable.entry[u8index].u32control.u8FUNC);
+			ConsoleWrite("-");
+			uart_debugHexa(IDTable.entry[u8index].u32control.u8TYPE);
 			ConsoleWrite("\r\n");
 		}
 	}else
