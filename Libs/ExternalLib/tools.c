@@ -144,13 +144,17 @@ void uart_debugHexa(UINT8 val)
 	}
 }
 
+/*
+UINT32 is stored the LSB first
+*/
 void uart_debugUINT32(UINT32 val)
 {
 	int i=0;
 	char uint32Char[4];
 	memcpy(uint32Char, &val, 4);
 	
-	for(i=0;i<4;i++)
+	//for(i=0;i<4;i++)
+	for(i=3;i>=0;i--)
 		uart_debugHexa(uint32Char[i]);
 }
 

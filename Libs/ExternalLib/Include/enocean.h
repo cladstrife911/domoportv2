@@ -6,6 +6,11 @@
 #include "tools.h"
 #include "console.h"
 	
+	
+
+#define ENOCEAN_UART 2
+#define ENOCEAN_BUFFER_SIZE 256
+#define ENOCEAN_BAUD_RATE 57600	
 
 /******** function prototypes ******/
 
@@ -14,6 +19,11 @@ RETURN_TYPE enocean_checkCmd(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE 
 void enocean_init();
 void enocean_clearRX();
 
+
+void ENOCEANRxInt();
+int EnoceanBufferSize();
+void ENOCEANUARTInit(long int baud);
+void ENOCEANFlush();
 
 //COMMON COMMAND ESP3
 RETURN_TYPE enocean_getBaseId();

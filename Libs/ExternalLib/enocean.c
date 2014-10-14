@@ -1,10 +1,31 @@
 #include "enocean.h"
 
-#define UART_PORT 2
+// #define UART_DEBUG
+#undef UART_DEBUG
 
-#define UART_DEBUG
 
-// #define GROVE_ENOCEAN
+
+static BYTE smInternal = 0; // State machine for internal use of callback functions
+static char ENOCEANBuffer[ENOCEAN_BUFFER_SIZE];
+static char ENOCEANbuffover;
+static int bufind_w;
+static int bufind_r;
+static int last_op;
+
+/****************
+extern variables defined Regs.c
+define the registers of the PIC24 for UART
+****************/
+extern int *UMODEs[];
+extern int *USTAs[];
+extern int *UBRGs[];
+extern int *UIFSs[];
+extern int *UIECs[];
+extern int *UTXREGs[];
+extern int *URXREGs[];
+extern int UTXIPos[];
+extern int URXIPos[];
+
 
 RETURN_TYPE enocean_newRXTel = NO_RX_TEL;
 UINT8 	enocean_radioRXBuffer[UART_MAX_LENGTH];
@@ -29,19 +50,126 @@ void enocean_init()
 {	
 	//don't forget to activate 2nd UART on the wizzard
 	//Init of the UART for EnOcean module when using the flyport Pro dev board (connected on J5)
-	#ifdef GROVE_ENOCEAN
-	//Grove Enocean must be connected to DIGI1 to work with this configuration
-	IOInit(p4,UART2RX); //ADIO7 of TCM310
-	IOInit(p2, UART2TX); //ADIO6 of TCM310
-	#else
+
 	IOInit(p5,UART2RX); //ADIO7 of TCM310
 	IOInit(p4, UART2TX); //ADIO6 of TCM310
-	#endif
+	// UARTInit(2,57600);
+	// UARTOn(2);
 	
-	UARTInit(2,57600);
-	UARTOn(2);
+	ENOCEANUARTInit(ENOCEAN_BAUD_RATE);
 }
 
+
+/********************************************
+Get Enocean buffer size fill in by interrupt
+********************************************/
+int EnoceanBufferSize()
+{
+	BYTE loc_last_op = last_op;
+	int conf_buff;
+	int bsize=0;
+
+	conf_buff = bufind_r - bufind_w;
+	if (conf_buff > 0)
+		bsize = ENOCEAN_BUFFER_SIZE - bufind_r + bufind_w;
+	else if (conf_buff < 0)
+		bsize = bufind_w - bufind_r;
+	else if (conf_buff == 0)
+		if (loc_last_op == 1)
+			bsize = ENOCEAN_BUFFER_SIZE;
+
+	return bsize;
+}
+
+/******************************************
+clear Enocean RX buffer
+******************************************/
+void ENOCEANFlush()
+{
+	bufind_w = 0;
+	bufind_r = 0;
+	last_op = 0;
+	ENOCEANBuffer[0] = '\0';
+}
+
+
+
+// Initializes Flyport UART4 to be used with Hilo Modem with sperified "long int baud" baudrate. It enables also HW flow signals CTS/RTS
+
+void ENOCEANUARTInit(long int baud)
+{
+    // Initialize HILO UART...
+    int port = ENOCEAN_UART-1;
+	long int brg , baudcalc , clk , err;
+	clk = GetInstructionClock();
+	brg = (clk/(baud*16ul))-1;
+	baudcalc = (clk/16ul/(brg+1));
+	err = (abs(baudcalc-baud)*100ul)/baud;
+
+	int UMODEval = 0;
+	UMODEval = (*UMODEs[port] & 0x3CFF);
+	
+	if (err<2)
+	{
+		*UMODEs[port] = (0xFFF7 & UMODEval);
+		*UBRGs[port] = brg;
+	}
+	else
+	{
+		brg = (clk/(baud*4ul))-1;
+		*UMODEs[port] = (0x8 | UMODEval);
+		*UBRGs[port] = brg;
+	}
+	
+	// UART ON:
+	*UMODEs[port] = *UMODEs[port] | 0x8000;
+	*USTAs[port] = *USTAs[port] | 0x400;
+
+	*UIFSs[port] = *UIFSs[port] & (~URXIPos[port]);
+	*UIFSs[port] = *UIFSs[port] & (~UTXIPos[port]);
+	*UIECs[port] = *UIECs[port] | URXIPos[port];
+}
+
+// UART2 Rx Interrupt to store received chars from modem
+void ENOCEANRxInt()
+{
+	int port = ENOCEAN_UART - 1;
+	
+	while ((*USTAs[port] & 1)!=0)
+	{
+		if (bufind_w == bufind_r)
+		{
+			if (last_op == 1)
+			{
+				ENOCEANbuffover = 1;
+				bufind_w = 0;
+				bufind_r = 0;
+				last_op = 0;
+			}
+		}
+
+		ENOCEANBuffer[bufind_w] = *URXREGs[port];
+		
+        #if defined UART_DEBUG
+		// if(ENOCEANBuffer[bufind_w] == 0x55)
+		// {
+			// ConsoleWrite("\r\n[RX] ");
+		// }
+        // uart_debugHexa(ENOCEANBuffer[bufind_w]);
+        // ConsoleWrite(" ");
+        #endif
+		
+		
+		if (bufind_w == ENOCEAN_BUFFER_SIZE - 1)
+		{
+			bufind_w = 0;
+		}
+		else
+			bufind_w++;
+	}
+	last_op = 1;
+	*UIFSs[port] = *UIFSs[port] & (~URXIPos[port]);
+}
 
 /**********************************************
 disable enocean UART while doing some treatments
@@ -52,44 +180,73 @@ void enocean_enableRadioRX(BOOL enable)
 	if(enable)
 	{
 		enocean_clearRX();
-		UARTFlush(UART_PORT);
-		UARTOn(UART_PORT);
+		UARTFlush(ENOCEAN_UART);
+		UARTOn(ENOCEAN_UART);
 	}else
 	{
-		UARTOff(UART_PORT);
-		UARTFlush(UART_PORT);
+		UARTOff(ENOCEAN_UART);
+		UARTFlush(ENOCEAN_UART);
 	}
 }
 
 
 /**********************************************
 read UART RX buffer to check if there is a new telegram arrived
+new verion based on interrupt
 **********************************************/
 RETURN_TYPE enocean_checkCmd(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE *pu8TelParam)
 {	
-	// int i;
+	int i;
 	
-	if(UARTBufferSize(UART_PORT)>10)
+	enocean_newRXTel = NO_RX_TEL;
+	
+	switch(smInternal)
 	{
-		vTaskDelay(2);
-		enocean_clearRX();
-		
-		enocean_radioRXtoRead = UARTBufferSize(UART_PORT);
-		UARTRead(UART_PORT,(char*)enocean_radioRXBuffer,enocean_radioRXtoRead);
-		
-		enocean_newRXTel = radio_getTelegram(pu8RxRadioTelegram,pu8TelParam);
-		
-		#ifdef UART_DEBUG
-		// for(i=0;i<enocean_radioRXtoRead;i++)
-			// uart_debugHexa(enocean_radioRXBuffer[i]);	
-		ConsoleWrite("\r\nresult=");
-		uart_debugHexa(enocean_newRXTel);
-		ConsoleWrite("\r\n");
-		#endif
-		
-		UARTFlush(UART_PORT);
-	}else
-		return NO_RX_TEL;
+		case 0:
+			if(ENOCEANBuffer[0] == 0x55)
+			{
+				// ConsoleWrite("\r\n[RX] ");
+				smInternal++;
+			}
+			else
+				ENOCEANFlush();
+			break;
+		case 1:
+			if(EnoceanBufferSize() >= 20)
+			{
+				// ConsoleWrite("$");
+				if(EnoceanBufferSize() >= (ENOCEANBuffer[2]+ENOCEANBuffer[3]+7))
+					smInternal++;
+			}
+			break;
+		case 2:
+			// ConsoleWrite("#");
+			enocean_radioRXtoRead = (ENOCEANBuffer[2]+ENOCEANBuffer[3]+7);
+			memcpy(&enocean_radioRXBuffer[0],&(ENOCEANBuffer[0]),  enocean_radioRXtoRead);
+			ENOCEANFlush();
+			
+			// ConsoleWrite("%");
+			// uart_debugHexa(enocean_radioRXtoRead);
+			
+			if(enocean_radioRXtoRead != 0)
+			{		
+				#ifdef UART_DEBUG
+				for(i=0;i<enocean_radioRXtoRead;i++)
+				{
+					uart_debugHexa(enocean_radioRXBuffer[i]);
+					ConsoleWrite(" ");
+				}
+				#endif
+				
+				enocean_newRXTel = radio_getTelegram(pu8RxRadioTelegram,pu8TelParam);
+					
+			}
+			smInternal = 0;
+			break;
+		default:
+			smInternal = 0;
+		break;
+	}
 	
 	return enocean_newRXTel;
 }
@@ -114,10 +271,10 @@ RETURN_TYPE enocean_getBaseId()
 	
 	enocean_checkCmd(&telegram,NULL);
 	
+	memcpy(&IDTable.u32BaseID, &(telegram.raw.bytes[1]),4);
 	
-	memcpy(&(IDTable.u32BaseID), &(telegram.raw.bytes[1]), 4);
 	ConsoleWrite("\r\n BaseId: ");
-	uart_debugUINT32(IDTable.u32BaseID);
+	uart_debugU32ID(IDTable.u32BaseID);
 	ConsoleWrite("\r\n");
 		
 		

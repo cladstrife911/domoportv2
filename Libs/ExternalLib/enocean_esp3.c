@@ -17,7 +17,7 @@
 #include "enocean_esp3.h"
 #include "console.h"
 
-#include "ute_mod.h"
+// #include "ute_mod.h"
 
 #define UART_DEBUG
 
@@ -26,7 +26,7 @@
 //#define UART_DEBUG
 
 //ID de l'interrupteur Enocean
-UINT8 ID_PTM[4]={0x00, 0x8B, 0x75, 0x3D};
+// UINT8 ID_PTM[4]={0x00, 0x8B, 0x75, 0x3D};
 
 //table for CRC8 computing
 const UINT8 u8CRC8Table[256] = {  
@@ -137,7 +137,7 @@ RETURN_TYPE radio_sendTelegram( TEL_RADIO_TYPE *  pu8TxRadioTelegram, TEL_PARAM_
 	UINT8 dataSize =0;
 	UINT8  u8CRC=0; 
 	
-	UINT8 esp3_header[4];
+	UINT8 esp3_header[4] = {0x00, 0x00, 0x00, 0x00};
 	UINT8 u32IDTmp[4];
 		
 	ConsoleWrite("ENTER radio_sendTelegram()\r\n");
@@ -145,15 +145,6 @@ RETURN_TYPE radio_sendTelegram( TEL_RADIO_TYPE *  pu8TxRadioTelegram, TEL_PARAM_
 	DEBUGDisplayRAW(pu8TxRadioTelegram);
 	DEBUGDisplayTELPARAM_TX(pu8TelParam);
 	
-	// When both length fields are 0, then this telegram is not allowed.  
-	// if(pBuffer[0] ==0 && pBuffer[1] == 0 && pBuffer[2]==0) 
-	// { 
-		// return OUT_OF_RANGE;  
-	// } 
-	
-	// dataSize = (((UINT32)pBuffer[0])<<8) + pBuffer[1] + pBuffer[2];
-	
-	// dataSize = pu8TelParam->p_tx.u8Length;
 	dataSize = pu8TxRadioTelegram->raw.u8Length;//pu8TelParam->p_tx.u8Length;
 	
 	#ifdef UART_DEBUG
@@ -161,34 +152,34 @@ RETURN_TYPE radio_sendTelegram( TEL_RADIO_TYPE *  pu8TxRadioTelegram, TEL_PARAM_
 	uart_debugHexa(dataSize);
 	#endif
 	
-	// Sync 
+	//----- Sync 
 	UARTWriteCh(UART_PORT, ESP3_SYNC_BYTE); 
 	
 	#ifdef UART_DEBUG
-	ConsoleWrite("\r\nHEADER:");
+	// ConsoleWrite(" - HEADER:");
 	#endif
 	
-	//data length 1
+	//-----data length 1
 	esp3_header[0] = 0;
 	UARTWriteCh(UART_PORT, esp3_header[0]);
-	uart_debugHexa(esp3_header[0]);
+	// uart_debugHexa(esp3_header[0]);
 	
-	//data length 0
+	//-----data length 0
 	esp3_header[1] = dataSize-7;
 	UARTWriteCh(UART_PORT, esp3_header[1]);
-	uart_debugHexa(esp3_header[1]);
+	// uart_debugHexa(esp3_header[1]);
 	
-	//optional data lentgh
+	//-----optional data lentgh
 	esp3_header[2] = 7;
 	UARTWriteCh(UART_PORT, esp3_header[2]);
-	uart_debugHexa(esp3_header[2]);
+	// uart_debugHexa(esp3_header[2]);
 	
-	//packet type
+	//-----packet type
 	esp3_header[3] = (ESP3_PACKET_TYPE)RADIO;
 	UARTWriteCh(UART_PORT,esp3_header[3]); //RADIO TYPE 0x01
-	uart_debugHexa(esp3_header[3]);
+	// uart_debugHexa(esp3_header[3]);
 
-	// Header CRC 
+	//----- Header CRC 
 	u8CRC = 0; 
 	u8CRC = proc_crc8(u8CRC, esp3_header[0]); 
 	u8CRC = proc_crc8(u8CRC, esp3_header[1]); 
@@ -197,9 +188,9 @@ RETURN_TYPE radio_sendTelegram( TEL_RADIO_TYPE *  pu8TxRadioTelegram, TEL_PARAM_
 	
 	UARTWriteCh(UART_PORT, u8CRC); 
 	#ifdef UART_DEBUG
-	ConsoleWrite("\r\nu8CRCH:");
-	uart_debugHexa(u8CRC);
-	ConsoleWrite("\r\n");
+	// ConsoleWrite("\r\nu8CRCH:");
+	// uart_debugHexa(u8CRC);
+	// ConsoleWrite("\r\n");
 	#endif
 
 	u8CRC = 0; 
@@ -209,7 +200,7 @@ RETURN_TYPE radio_sendTelegram( TEL_RADIO_TYPE *  pu8TxRadioTelegram, TEL_PARAM_
 		u8CRC = proc_crc8(u8CRC, pu8TxRadioTelegram->raw.bytes[i]); 
 		UARTWriteCh(UART_PORT, pu8TxRadioTelegram->raw.bytes[i]);
 		#ifdef UART_DEBUG
-		uart_debugHexa(pu8TxRadioTelegram->raw.bytes[i]);
+		// uart_debugHexa(pu8TxRadioTelegram->raw.bytes[i]);
 		#endif
 	} 
 	//----------------OPTIONAL DATA
@@ -217,17 +208,17 @@ RETURN_TYPE radio_sendTelegram( TEL_RADIO_TYPE *  pu8TxRadioTelegram, TEL_PARAM_
 	u8CRC = proc_crc8(u8CRC,pu8TelParam->p_tx.u8SubTelNum); 
 	UARTWriteCh(UART_PORT, pu8TelParam->p_tx.u8SubTelNum);
 	#ifdef UART_DEBUG
-	uart_debugHexa(pu8TelParam->p_tx.u8SubTelNum);
+	// uart_debugHexa(pu8TelParam->p_tx.u8SubTelNum);
 	#endif
 	
 	//-----destination ID
 	memcpy(u32IDTmp, &(pu8TelParam->p_tx.u32DestinationId), 4);
-	for (i = 0 ; i < 4 ; i++) 
+	for (i = 0 ; i <4 ; i++) 
 	{ 
 		u8CRC = proc_crc8(u8CRC, u32IDTmp[i]); 
 		UARTWriteCh(UART_PORT, u32IDTmp[i]);
 		#ifdef UART_DEBUG
-		uart_debugHexa(u32IDTmp[i]);
+		// uart_debugHexa(u32IDTmp[i]);
 		#endif
 	} 
 	
@@ -235,21 +226,21 @@ RETURN_TYPE radio_sendTelegram( TEL_RADIO_TYPE *  pu8TxRadioTelegram, TEL_PARAM_
 	u8CRC = proc_crc8(u8CRC, 0xFF); 
 	UARTWriteCh(UART_PORT, 0xFF);
 	#ifdef UART_DEBUG
-	uart_debugHexa(0xFF);
+	// uart_debugHexa(0xFF);
 	#endif
 	
 	//-----security level
 	u8CRC = proc_crc8(u8CRC, 0x00); 
 	UARTWriteCh(UART_PORT, 0x00);
 	#ifdef UART_DEBUG
-	uart_debugHexa(0x00);
+	// uart_debugHexa(0x00);
 	#endif
 
-	// Data CRC 
+	//----- Data CRC 
 	UARTWriteCh(UART_PORT, u8CRC); 
 	#ifdef UART_DEBUG
-	ConsoleWrite("\r\nu8CRCD:");
-	uart_debugHexa(u8CRC);
+	// ConsoleWrite("\r\nu8CRCD:");
+	// uart_debugHexa(u8CRC);
 	#endif
 
 
@@ -271,12 +262,20 @@ Function used to read telegram comming from the enocean module
 @param pu8RxRadioTelegram struct that will contain the telegram data
 @param pu8TelParam struct that will contain optional data 
 ***********************************/
+
+ 
+/**********************************
+Function used to read telegram comming from the enocean module
+@param pu8RxRadioTelegram struct that will contain the telegram data
+@param pu8TelParam struct that will contain optional data 
+***********************************/
 RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE *pu8TelParam)
 { 
 	UINT32 i=0; 
 	UINT8  u8CRC=0; 
 	UINT32 dataSize =0;
 	UINT32 packetSize=0;
+	UINT8 doublePacketFlag;
 	
 	// ConsoleWrite("ENTER radio_getTelegram()\r\n");
 	
@@ -290,11 +289,11 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 			ConsoleWrite("\r\n DOUBLE PACKET \r\n- length= ");
 			uart_debugHexa(enocean_radioRXtoRead);
 			ConsoleWrite("\r\n- dataSize = ");
-			uart_debugUINT32(packetSize);
+			uart_debugHexa((UINT8)packetSize);
 		#endif
+		doublePacketFlag = 1;
 		//recursivity to handle the 2nd packet
-		//TODO A MODIFIER
-		// getPacket(&enocean_radioRXBuffer[packetSize],enocean_radioRXtoRead-packetSize);
+		// radio_getTelegram(pu8RxRadioTelegram,pu8TelParam);
 	}
 		
 	//Sync
@@ -335,7 +334,16 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 			//! u8Dbm of the last subtelegram calculated from RSSI. Note this value is an unsigned value. The real dBm signal is a negative value.
 			pu8TelParam->p_rx.u8Dbm = enocean_radioRXBuffer[packetSize-3];
 			
-			DEBUGDisplayTELPARAM(pu8TelParam);
+			// DEBUGDisplayTELPARAM(pu8TelParam);
+			
+			// pu8RxRadioTelegram->raw.bytes[0] = enocean_radioRXBuffer[6];
+			// pu8RxRadioTelegram->raw.bytes[1] = enocean_radioRXBuffer[7];
+			// pu8RxRadioTelegram->raw.bytes[2] = enocean_radioRXBuffer[8];
+			// pu8RxRadioTelegram->raw.bytes[3] = enocean_radioRXBuffer[9];
+			// pu8RxRadioTelegram->raw.bytes[4] = enocean_radioRXBuffer[10];
+			// pu8RxRadioTelegram->raw.bytes[5] = enocean_radioRXBuffer[11];
+			// pu8RxRadioTelegram->raw.bytes[6] = enocean_radioRXBuffer[12];
+			
 			
 			//switch RORG
 			switch( ((UINT8*)enocean_radioRXBuffer)[6])
@@ -346,6 +354,8 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 					memcpy(&(pu8RxRadioTelegram->trps.u32Id), &enocean_radioRXBuffer[8], 4);
 					pu8RxRadioTelegram->trps.u8Status 	= enocean_radioRXBuffer[12];											
 					pu8RxRadioTelegram->trps.u8Length 	= RADIO_DEC_LENGTH_RPS;
+					
+					pu8RxRadioTelegram->raw.u8Length 	= RADIO_DEC_LENGTH_RPS;
 	
 					// DEBUGDisplayTRPS(pu8RxRadioTelegram);
 				break;
@@ -356,6 +366,8 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 					memcpy(&(pu8RxRadioTelegram->t1bs.u32Id), &enocean_radioRXBuffer[8], 4);
 					pu8RxRadioTelegram->t1bs.u8Status 	= enocean_radioRXBuffer[12];											
 					pu8RxRadioTelegram->t1bs.u8Length 	= RADIO_DEC_LENGTH_1BS;
+					
+					pu8RxRadioTelegram->raw.u8Length 	= RADIO_DEC_LENGTH_1BS;
 					
 					// DEBUGDisplayT1BS(pu8RxRadioTelegram);
 				break;
@@ -369,25 +381,58 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 					memcpy(&(pu8RxRadioTelegram->t4bs.u32Id), &enocean_radioRXBuffer[11], 4);
 					pu8RxRadioTelegram->t4bs.u8Status 	= enocean_radioRXBuffer[15];											
 					pu8RxRadioTelegram->t4bs.u8Length 	= RADIO_DEC_LENGTH_4BS;
+					pu8RxRadioTelegram->raw.u8Length 	= RADIO_DEC_LENGTH_4BS;
 					
 					// DEBUGDisplayT4BS(pu8RxRadioTelegram);
 				break;
 				
-				case RADIO_CHOICE_UTE:
-				//TODO
-				pu8RxRadioTelegram->raw.bytes[0] = RADIO_CHOICE_UTE;
-				pu8RxRadioTelegram->raw.bytes[1] = enocean_radioRXBuffer[7];
-				pu8RxRadioTelegram->raw.bytes[2] = enocean_radioRXBuffer[8];
-				pu8RxRadioTelegram->raw.bytes[3] = enocean_radioRXBuffer[9];
-				pu8RxRadioTelegram->raw.bytes[4] = enocean_radioRXBuffer[10];
-				pu8RxRadioTelegram->raw.bytes[5] = enocean_radioRXBuffer[11];
-				pu8RxRadioTelegram->raw.bytes[6] = enocean_radioRXBuffer[12];
-				pu8RxRadioTelegram->raw.bytes[7] = enocean_radioRXBuffer[13];
-				memcpy(&(pu8RxRadioTelegram->raw.bytes[8]), &enocean_radioRXBuffer[14], 4);
-				pu8RxRadioTelegram->raw.bytes[12] 	= enocean_radioRXBuffer[18];											
-				pu8RxRadioTelegram->raw.u8Length 	= UTE_TELEGRAM_LENGTH;	//0xE
+				case RADIO_CHOICE_VLD:
+					pu8RxRadioTelegram->raw.bytes[0] = RADIO_CHOICE_VLD;
+					pu8RxRadioTelegram->raw.bytes[1] = enocean_radioRXBuffer[7];
+					pu8RxRadioTelegram->raw.bytes[2] = enocean_radioRXBuffer[8];
+					pu8RxRadioTelegram->raw.bytes[3] = enocean_radioRXBuffer[9];
+					
+					switch(enocean_radioRXBuffer[7])
+					{
+						case 0x04:
+							ConsoleWrite("CMD4\r\n");
+							pu8RxRadioTelegram->raw.bytes[4] = enocean_radioRXBuffer[10];
+							pu8RxRadioTelegram->raw.bytes[5] = enocean_radioRXBuffer[11];
+							pu8RxRadioTelegram->raw.bytes[6] = enocean_radioRXBuffer[12];
+							pu8RxRadioTelegram->raw.bytes[7] = enocean_radioRXBuffer[13];
+							pu8RxRadioTelegram->raw.u8Length 	= 0x0A;
+							break;
+						case 0x07:
+							ConsoleWrite("CMD7\r\n");
+							pu8RxRadioTelegram->raw.bytes[4] = enocean_radioRXBuffer[10];
+							pu8RxRadioTelegram->raw.bytes[5] = enocean_radioRXBuffer[11];
+							pu8RxRadioTelegram->raw.bytes[6] = enocean_radioRXBuffer[12];
+							pu8RxRadioTelegram->raw.bytes[7] = enocean_radioRXBuffer[13];
+							pu8RxRadioTelegram->raw.bytes[8] = enocean_radioRXBuffer[14];
+							pu8RxRadioTelegram->raw.bytes[9] = enocean_radioRXBuffer[15];
+							pu8RxRadioTelegram->raw.bytes[10] = enocean_radioRXBuffer[16];
+							pu8RxRadioTelegram->raw.u8Length 	= 0x0E;
+							break;
+						default:
+						break;
+					}
+					
+				break;
 				
-				DEBUGDisplayRAW(pu8RxRadioTelegram);
+				case RADIO_CHOICE_UTE:
+					pu8RxRadioTelegram->raw.bytes[0] = RADIO_CHOICE_UTE;
+					pu8RxRadioTelegram->raw.bytes[1] = enocean_radioRXBuffer[7];
+					pu8RxRadioTelegram->raw.bytes[2] = enocean_radioRXBuffer[8];
+					pu8RxRadioTelegram->raw.bytes[3] = enocean_radioRXBuffer[9];
+					pu8RxRadioTelegram->raw.bytes[4] = enocean_radioRXBuffer[10];
+					pu8RxRadioTelegram->raw.bytes[5] = enocean_radioRXBuffer[11];
+					pu8RxRadioTelegram->raw.bytes[6] = enocean_radioRXBuffer[12];
+					pu8RxRadioTelegram->raw.bytes[7] = enocean_radioRXBuffer[13];
+					memcpy(&(pu8RxRadioTelegram->raw.bytes[8]), &enocean_radioRXBuffer[14], 4);
+					pu8RxRadioTelegram->raw.bytes[12] 	= enocean_radioRXBuffer[18];											
+					pu8RxRadioTelegram->raw.u8Length 	= 0xE; //UTE_TELEGRAM_LENGTH;	//0xE
+					
+					// DEBUGDisplayRAW(pu8RxRadioTelegram);
 				
 				break;	
 				
@@ -402,13 +447,13 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 			{
 				case RET_OK:
 					//TODO !!!this will only work for CO_RD_IDBASE !!!
-					//il faut passer un paramètre supllémentaire à la fonction pour qu'elle sache quelle COMMON COMMAND a été envoyé
-					//la longueur de la réponse et différente en fonction de la commande (CO_WR_REPEATER réponse longueur 1)
+					//il faut passer un param?tre supll?mentaire ? la fonction pour qu'elle sache quelle COMMON COMMAND a ?t? envoy?
+					//la longueur de la r?ponse et diff?rente en fonction de la commande (CO_WR_REPEATER r?ponse longueur 1)
 					memcpy(&(pu8RxRadioTelegram->raw.bytes), &(enocean_radioRXBuffer[6]), 6); //Ret code + BaseId + remaining wr cycle = 6	
 					#ifdef UART_DEBUG					
-					ConsoleWrite("\r\nRAW: ");
-					for(i=0;i<packetSize;i++)
-						uart_debugHexa(enocean_radioRXBuffer[i]);
+					// ConsoleWrite("\r\nRAW: ");
+					// for(i=0;i<packetSize;i++)
+						// uart_debugHexa(enocean_radioRXBuffer[i]);
 					#endif
 					break;
 					
@@ -426,10 +471,196 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 
 	
 	// DEBUGDisplayRAW(pu8RxRadioTelegram);
+
 	
 	// ConsoleWrite("EXIT radio_getTelegram()\r\n");
 	return NEW_RX_TEL; 
 } //radio_getTelegram
+
+
+
+
+
+
+
+// RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE *pu8TelParam)
+// { 
+	// UINT32 i=0; 
+	// UINT8  u8CRC=0; 
+	// UINT32 dataSize =0;
+	// UINT32 packetSize=0;
+	
+	// // ConsoleWrite("ENTER radio_getTelegram()\r\n");
+	
+	// //First we have to check if we received more than one ESP3 packet
+	// dataSize = (((UINT32)enocean_radioRXBuffer[1])<<8) + enocean_radioRXBuffer[2] + enocean_radioRXBuffer[3];
+	
+	// packetSize = dataSize + ESP3_HEADER_SIZE + 3; // SYNC+CRC8H+CRC8D = 3
+	// if(packetSize < enocean_radioRXtoRead) 
+	// {
+		// #ifdef UART_DEBUG
+			// ConsoleWrite("\r\n DOUBLE PACKET \r\n- length= ");
+			// uart_debugHexa(enocean_radioRXtoRead);
+			// ConsoleWrite("\r\n- dataSize = ");
+			// uart_debugUINT32(packetSize);
+		// #endif
+		// //recursivity to handle the 2nd packet
+		// // radio_getTelegram(pu8RxRadioTelegram,pu8TelParam);
+	// }
+		
+	// //Sync
+	// if(enocean_radioRXBuffer[0]!=ESP3_SYNC_BYTE)
+		// return NOT_VALID_TEL;
+		
+	// // When both length fields are 0, then this telegram is not allowed.  
+	// if((enocean_radioRXBuffer[1] == 0) && (enocean_radioRXBuffer[2] ==0) && (enocean_radioRXBuffer[3] == 0)) 
+		// return NOT_VALID_TEL;  
+
+	// // Header CRC 
+	// u8CRC = proc_crc8(u8CRC, ((UINT8*)enocean_radioRXBuffer)[1]); 
+	// u8CRC = proc_crc8(u8CRC, ((UINT8*)enocean_radioRXBuffer)[2]); 
+	// u8CRC = proc_crc8(u8CRC, ((UINT8*)enocean_radioRXBuffer)[3]); 
+	// u8CRC = proc_crc8(u8CRC, ((UINT8*)enocean_radioRXBuffer)[4]); 
+	
+	// if(u8CRC!= ((UINT8*)enocean_radioRXBuffer)[5])
+		// return NOT_VALID_CHKSUM; //bad CRC
+
+	// // Data & Optional Data
+	// u8CRC = 0; 
+	
+	// for (i = 0 ; i < dataSize ;i++) 
+	// { 
+		// u8CRC = proc_crc8(u8CRC, enocean_radioRXBuffer[i+6]);
+	// } 
+	// if(u8CRC != ((UINT8*)enocean_radioRXBuffer)[packetSize-1])
+		// return NOT_VALID_CHKSUM;
+
+
+	// switch(((UINT8*)enocean_radioRXBuffer)[4])
+	// {		
+		// case RADIO:
+			// //! number of subtelegrams received	(= number of originals + number of repeated)
+			// pu8TelParam->p_rx.u8SubTelNum = enocean_radioRXBuffer[packetSize-8];
+			// //! received Destination ID
+			// memcpy(&(pu8TelParam->p_rx.u32DestinationId), &enocean_radioRXBuffer[packetSize-7], 4);
+			// //! u8Dbm of the last subtelegram calculated from RSSI. Note this value is an unsigned value. The real dBm signal is a negative value.
+			// pu8TelParam->p_rx.u8Dbm = enocean_radioRXBuffer[packetSize-3];
+			
+			// // DEBUGDisplayTELPARAM(pu8TelParam);
+			// memset(&(pu8RxRadioTelegram->raw.bytes[0]), 0, RADIO_BUFF_LENGTH);
+
+			
+			
+			// //switch RORG
+			// switch( ((UINT8*)enocean_radioRXBuffer)[6])
+			// {
+				// case RADIO_CHOICE_RPS:
+					// // pu8RxRadioTelegram->trps.u8Choice	= RADIO_CHOICE_RPS;
+					// // pu8RxRadioTelegram->trps.u8Data 	= enocean_radioRXBuffer[7];
+					// // memcpy(&(pu8RxRadioTelegram->trps.u32Id), &enocean_radioRXBuffer[8], 4);
+					// // pu8RxRadioTelegram->trps.u8Status 	= enocean_radioRXBuffer[12];											
+					
+					
+					// pu8RxRadioTelegram->raw.u8Length 	= RADIO_DEC_LENGTH_RPS;
+					// memcpy(&(pu8RxRadioTelegram->raw.bytes[0]), &enocean_radioRXBuffer[6], RADIO_DEC_LENGTH_RPS);
+					// pu8RxRadioTelegram->trps.u8Chk = 0;//faux
+					
+		
+	
+					// // DEBUGDisplayTRPS(pu8RxRadioTelegram);
+					// // DEBUGDisplayRAW(pu8RxRadioTelegram);
+				// break;
+				
+				// case RADIO_CHOICE_1BS:
+					// // pu8RxRadioTelegram->t1bs.u8Choice	= RADIO_CHOICE_1BS;
+					// // pu8RxRadioTelegram->t1bs.u8Data 	= enocean_radioRXBuffer[7];
+					// // memcpy(&(pu8RxRadioTelegram->t1bs.u32Id), &enocean_radioRXBuffer[8], 4);
+					// // pu8RxRadioTelegram->t1bs.u8Status 	= enocean_radioRXBuffer[12];
+					
+					// pu8RxRadioTelegram->t1bs.u8Length 	= RADIO_DEC_LENGTH_1BS;
+					// memcpy(&(pu8RxRadioTelegram->raw.bytes[0]), &enocean_radioRXBuffer[6], RADIO_DEC_LENGTH_1BS);
+					
+					// // DEBUGDisplayT1BS(pu8RxRadioTelegram);
+				// break;
+				
+				// case RADIO_CHOICE_4BS:
+					// pu8RxRadioTelegram->t4bs.u8Choice	= RADIO_CHOICE_4BS;
+					// pu8RxRadioTelegram->t4bs.u8Data3 	= enocean_radioRXBuffer[7];
+					// pu8RxRadioTelegram->t4bs.u8Data2 	= enocean_radioRXBuffer[8];
+					// pu8RxRadioTelegram->t4bs.u8Data1 	= enocean_radioRXBuffer[9];
+					// pu8RxRadioTelegram->t4bs.u8Data0 	= enocean_radioRXBuffer[10];
+					// memcpy(&(pu8RxRadioTelegram->t4bs.u32Id), &enocean_radioRXBuffer[11], 4);
+					// pu8RxRadioTelegram->t4bs.u8Status 	= enocean_radioRXBuffer[15];
+					
+					// pu8RxRadioTelegram->raw.u8Length 	= RADIO_DEC_LENGTH_4BS;
+					
+					
+					// // pu8RxRadioTelegram->t4bs.u8Length 	= RADIO_DEC_LENGTH_4BS;
+					// // memcpy(&(pu8RxRadioTelegram->raw.bytes[0]), &enocean_radioRXBuffer[6], RADIO_DEC_LENGTH_4BS);
+					
+					// // DEBUGDisplayT4BS(pu8RxRadioTelegram);
+					// // DEBUGDisplayRAW(pu8RxRadioTelegram);
+				// break;
+				
+				// case RADIO_CHOICE_UTE:
+					// // pu8RxRadioTelegram->raw.bytes[0] = RADIO_CHOICE_UTE;
+					// // pu8RxRadioTelegram->raw.bytes[1] = enocean_radioRXBuffer[7];
+					// // pu8RxRadioTelegram->raw.bytes[2] = enocean_radioRXBuffer[8];
+					// // pu8RxRadioTelegram->raw.bytes[3] = enocean_radioRXBuffer[9];
+					// // pu8RxRadioTelegram->raw.bytes[4] = enocean_radioRXBuffer[10];
+					// // pu8RxRadioTelegram->raw.bytes[5] = enocean_radioRXBuffer[11];
+					// // pu8RxRadioTelegram->raw.bytes[6] = enocean_radioRXBuffer[12];
+					// // pu8RxRadioTelegram->raw.bytes[7] = enocean_radioRXBuffer[13];
+					// // memcpy(&(pu8RxRadioTelegram->raw.bytes[8]), &enocean_radioRXBuffer[14], 4);
+					// // pu8RxRadioTelegram->raw.bytes[12] 	= enocean_radioRXBuffer[18];											
+					
+					
+					// memcpy(&(pu8RxRadioTelegram->raw.bytes[0]), &enocean_radioRXBuffer[6], 0xE);//UTE_TELEGRAM_LENGTH
+					// pu8RxRadioTelegram->raw.u8Length 	= 0xE; //UTE_TELEGRAM_LENGTH;	//0xE
+					
+					// // DEBUGDisplayRAW(pu8RxRadioTelegram);
+				
+				// break;	
+				
+				// default:
+					// ConsoleWrite("EEP not supported\r\n");
+				// break;
+			// }
+		// break;
+		
+		// case RESPONSE:
+			// switch(enocean_radioRXBuffer[6])
+			// {
+				// case RET_OK:
+					// //TODO !!!this will only work for CO_RD_IDBASE !!!
+					// //il faut passer un paramètre supllémentaire à la fonction pour qu'elle sache quelle COMMON COMMAND a été envoyé
+					// //la longueur de la réponse et différente en fonction de la commande (CO_WR_REPEATER réponse longueur 1)
+					// memcpy(&(pu8RxRadioTelegram->raw.bytes), &(enocean_radioRXBuffer[6]), 6); //Ret code + BaseId + remaining wr cycle = 6	
+					// #ifdef UART_DEBUG					
+					// ConsoleWrite("\r\nRAW: ");
+					// for(i=0;i<packetSize;i++)
+						// uart_debugHexa(enocean_radioRXBuffer[i]);
+					// #endif
+					// break;
+					
+				// default:
+					// return NOT_VALID_TEL;
+				// break;
+			// }
+			
+		// break;
+		
+		// default:
+			// ConsoleWrite("\r\n unknown TYPE");
+			// break;
+	// }//switch telegram type
+
+	
+	// // DEBUGDisplayRAW(pu8RxRadioTelegram);
+	
+	// // ConsoleWrite("EXIT radio_getTelegram()\r\n");
+	// return NEW_RX_TEL; 
+// } //radio_getTelegram
 
 
  
@@ -445,50 +676,53 @@ RETURN_TYPE radio_getTelegram(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE
 {
 	#ifdef UART_DEBUG
 	int i=0;
-	ConsoleWrite("RAW: ");
+	ConsoleWrite("RAW;");
+	// if(telegram->raw.u8Length > 21) telegram->raw.u8Length = 21;
 	for(i=0;i<telegram->raw.u8Length;i++)
 	{
 		uart_debugHexa(telegram->raw.bytes[i]);
 		ConsoleWrite(" ");
 	}
+	ConsoleWrite(";");
 	ConsoleWrite("\r\n");
 	#endif
 }
 void DEBUGDisplayTRPS(TEL_RADIO_TYPE* const telegram)
 {
 	#ifdef UART_DEBUG
-	ConsoleWrite("\r\n######\r\n");
 	ConsoleWrite("\r\nRPS:\r\n-trps.u8Choice:");
 	uart_debugHexa(telegram->trps.u8Choice	);
 	ConsoleWrite("\r\n-trps.u8Data:");
 	uart_debugHexa(telegram->trps.u8Data	);
 	ConsoleWrite("\r\n-trps.u32Id:");
-	uart_debugUINT32(telegram->trps.u32Id	);
+	uart_debugU32ID(telegram->trps.u32Id	);
 	ConsoleWrite("\r\n-trps.u8Status:");
 	uart_debugHexa(telegram->trps.u8Status	);
+	ConsoleWrite("\r\n-trps.u8Chk:");
+	uart_debugHexa(telegram->trps.u8Chk	);
 	ConsoleWrite("\r\n");
 	#endif
 }
 void DEBUGDisplayT1BS(TEL_RADIO_TYPE* const telegram)
 {
 	#ifdef UART_DEBUG
-	ConsoleWrite("\r\n######\r\n");
-	ConsoleWrite("\r\nRPS:\r\n-t1bs.u8Choice:");
+	ConsoleWrite("\r\nT1BS:\r\n-t1bs.u8Choice:");
 	uart_debugHexa(telegram->t1bs.u8Choice	);
 	ConsoleWrite("\r\n-t1bs.u8Data:");
 	uart_debugHexa(telegram->t1bs.u8Data	);
 	ConsoleWrite("\r\n-t1bs.u32Id:");
-	uart_debugUINT32(telegram->t1bs.u32Id	);
+	uart_debugU32ID(telegram->t1bs.u32Id	);
 	ConsoleWrite("\r\n-t1bs.u8Status:");
 	uart_debugHexa(telegram->t1bs.u8Status	);
+	ConsoleWrite("\r\n-t1bs.u8Chk:");
+	uart_debugHexa(telegram->t1bs.u8Chk	);
 	ConsoleWrite("\r\n");
 	#endif
 }
 void DEBUGDisplayT4BS(TEL_RADIO_TYPE* const telegram)
 {
 	#ifdef UART_DEBUG
-	ConsoleWrite("\r\n######\r\n");
-	ConsoleWrite("\r\nRPS:\r\n-t4bs.u8Choice:");
+	ConsoleWrite("\r\nT4BS:\r\n-t4bs.u8Choice:");
 	uart_debugHexa(telegram->t4bs.u8Choice	);
 	ConsoleWrite("\r\n-t4bs.u8Data3-2-1-0:");
 	uart_debugHexa(telegram->t4bs.u8Data3	);
@@ -496,9 +730,11 @@ void DEBUGDisplayT4BS(TEL_RADIO_TYPE* const telegram)
 	uart_debugHexa(telegram->t4bs.u8Data1	);
 	uart_debugHexa(telegram->t4bs.u8Data0	);
 	ConsoleWrite("\r\n-t4bs.u32Id:");
-	uart_debugUINT32(telegram->t4bs.u32Id	);
+	uart_debugU32ID(telegram->t4bs.u32Id	);
 	ConsoleWrite("\r\n-t4bs.u8Status:");
 	uart_debugHexa(telegram->t4bs.u8Status	);
+	ConsoleWrite("\r\n-t4bs.u8Chk:");
+	uart_debugHexa(telegram->t4bs.u8Chk	);
 	ConsoleWrite("\r\n");
 	#endif
 }
@@ -506,14 +742,14 @@ void DEBUGDisplayT4BS(TEL_RADIO_TYPE* const telegram)
 void DEBUGDisplayTELPARAM(TEL_PARAM_TYPE* const param)
 {
 	#ifdef UART_DEBUG
-	ConsoleWrite("\r\nTEL_PARAM_TYPE:\r\n");
-	ConsoleWrite("-p_rx.u8SubTelNum:");
+	// ConsoleWrite("\r\nTEL_PARAM_TYPE:\r\n");
+	ConsoleWrite("p_rx.u8SubTelNum;");
 	uart_debugHexa(param->p_rx.u8SubTelNum);
-	ConsoleWrite("\r\n-p_rx.u32DestinationId:");
-	uart_debugUINT32(param->p_rx.u32DestinationId	);
-	ConsoleWrite("\r\n-p_rx.u8Dbm:");
+	ConsoleWrite(";p_rx.u32DestinationId;");
+	uart_debugU32ID(param->p_rx.u32DestinationId	);
+	ConsoleWrite(";p_rx.u8Dbm;");
 	uart_debugHexa(param->p_rx.u8Dbm);
-	ConsoleWrite("\r\n");
+	ConsoleWrite(";");
 	#endif
 }
 
@@ -524,7 +760,7 @@ void DEBUGDisplayTELPARAM_TX(TEL_PARAM_TYPE* const param)
 	ConsoleWrite("-p_tx.u8SubTelNum:");
 	uart_debugHexa(param->p_tx.u8SubTelNum);
 	ConsoleWrite("\r\n-p_tx.u32DestinationId:");
-	uart_debugUINT32(param->p_tx.u32DestinationId	);
+	uart_debugU32ID(param->p_tx.u32DestinationId	);
 	ConsoleWrite("\r\n");
 	#endif
 }

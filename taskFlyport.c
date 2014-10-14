@@ -19,49 +19,38 @@ SM_STATE_NR_TYPE u8mode = SM_INIT;
 #ifdef UART_DEBUG
 extern BOOL cmdNew;	//console.c
 #endif
-
-//appelée dans sm_init()
+		
+//appelee dans sm_init()
 void DEBUG()
 {
-	TEL_RADIO_TYPE telegram;
-	TEL_PARAM_TYPE telParam;
-	// UINT8 packet[19] ={0x00, 0x08, 0x07,(UINT8)((ESP3_PACKET_TYPE)RADIO), //header
-										// 0xD4, 0xD2, 0x01, 0x01, 0x00, 0x3E,0xFF,0x91,	//data
-										// 0x03, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00};	//optional data
+	// TEL_RADIO_TYPE telegram;
+	// int i = 0;
 	
+	ConsoleWrite("#### DEBUG\r\n");
 	
-	vTaskDelay(50);
-	ConsoleWrite("#### DEBUG\r");
+	// telegram.raw.u8Length = RADIO_BUFF_LENGTH;
+	// for(i=0;i<RADIO_BUFF_LENGTH;i++)
+	// {
+		// telegram.raw.bytes[i]=i;
+	// }
+	ConsoleWrite("sizeof(int)=");
+	uart_debugHexa(sizeof(int));
+	ConsoleWrite("\r\n");
+	ConsoleWrite("sizeof(CHOICE_TYPE)=");
+	uart_debugHexa(sizeof(CHOICE_TYPE));
+	ConsoleWrite("\r\n");
+	ConsoleWrite("sizeof(UINT8)=");
+	uart_debugHexa(sizeof(UINT8));
+	ConsoleWrite("\r\n");
 	
-	memset(&(telegram.raw.bytes[0]),0,RADIO_BUFF_LENGTH);	//21
-
-	telParam.p_tx.u8SubTelNum = 3;	//send 3 subtelegram
-	telParam.p_tx.u32DestinationId = 0xFFFFFFFF; 
-
-	telegram.raw.bytes[0] = RADIO_CHOICE_UTE;
+	// DEBUGDisplayRAW(&telegram);
+	// DEBUGDisplayTRPS(&telegram);
+	// DEBUGDisplayT1BS(&telegram);
+	// DEBUGDisplayT4BS(&telegram);
 	
-	//#### UTE CMD 0x0 payload ###
-	//TODO à modifier pour gérer plusieurs gigogne
-	telegram.raw.bytes[1] = UTE_EEP_RORG;
-	telegram.raw.bytes[2] = UTE_EEP_FUNC;
-	telegram.raw.bytes[3] = UTE_EEP_TYPE;
-	telegram.raw.bytes[4] = 0;	//MSB ManID
-	telegram.raw.bytes[5] = UTE_MANUFACTURER_ID; //manID Giga-Concept 0x03F
-	telegram.raw.bytes[6] = 0xFF; //teach-in all supported channel
-	telegram.raw.bytes[7] = 0x91;//0b10010001 - Bidirectionnal + Response accepted + CMD 0x1
-	//######
-	
-	telegram.raw.u8Length =  (RADIO_TEL_LENGTH) RADIO_DEC_LENGTH_UTE;	//20
-	
-	radio_sendTelegram(&telegram, &telParam);
-	
-	vTaskDelay(10);
-	
-	enocean_checkCmd(&telegram,NULL);
-	
-	vTaskDelay(50);
-	
+	 
 	ConsoleWrite("#### DEBUG END\r\n");
+	ConsoleWrite("\r\n");
 }
 
 
@@ -130,7 +119,7 @@ void FlyportTask()
 ***************************************************/
 RETURN_TYPE sm_init()
 {
-	BYTE resultBuff[SIZE_TO_READ];
+	
 	
 	ConsoleWrite("ENTER SM_INIT()\r\n");
 	
@@ -139,16 +128,18 @@ RETURN_TYPE sm_init()
 	enocean_init();
 	
 	
+	
 	// DEBUG();
 		
 	//*******************************************
 	// READ FLASH MEMORY 
-	mem_readFlash(MEMORY_ADDRESS_IDTABLE, resultBuff);
-	memcpy(&(IDTable),resultBuff,sizeof(IDTable));
+	// mem_readFlash(MEMORY_ADDRESS_IDTABLE, resultBuff);
+	// memcpy(&(IDTable),resultBuff,sizeof(IDTable));
+	// mem_readIDTableFlash(&IDTable);
 	
 	//*******************************************
 	// GET BASEID
-	enocean_getBaseId();
+	// enocean_getBaseId();
 	
 	//init complet, go to operation mode
 	u8mode = SM_OPERATION;
@@ -173,17 +164,17 @@ RETURN_TYPE sm_operation()
 		if(enocean_checkCmd(&telegram, &telParam) == NEW_RX_TEL)
 		{
 			ConsoleWrite("RX Tel\r\n");
-			if(enocean_idSearch(&IDTable, &telegram, &idSearchOut) == ID_SUCCESS)
-			{
-				ConsoleWrite("ID registered ");
-				uart_debugUINT32(IDTable.entry[idSearchOut.u8index].u32Id);
-				ConsoleWrite("\r\n");
+			// if(enocean_idSearch(&IDTable, &telegram, &idSearchOut) == ID_SUCCESS)
+			// {
+				// // ConsoleWrite("ID registered ");
+				// uart_debugU32ID(IDTable.entry[idSearchOut.u8index].u32Id);
+				// ConsoleWrite("\r\n");
 				
 				
-			}else
-			{
-				ConsoleWrite("ID not registered\r\n");
-			}
+			// }else
+			// {
+				// // ConsoleWrite("ID not registered\r\n");
+			// }
 			
 		}
 	
