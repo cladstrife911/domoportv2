@@ -212,7 +212,7 @@ RETURN_TYPE enocean_checkCmd(TEL_RADIO_TYPE *pu8RxRadioTelegram, TEL_PARAM_TYPE 
 				ENOCEANFlush();
 			break;
 		case 1:
-			if(EnoceanBufferSize() >= 20)
+			if(EnoceanBufferSize() >= 7)
 			{
 				// ConsoleWrite("$");
 				if(EnoceanBufferSize() >= (ENOCEANBuffer[2]+ENOCEANBuffer[3]+7))
